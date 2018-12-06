@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # --------------------------------------------------------
 # Fast R-CNN
@@ -6,6 +6,7 @@
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick
 # --------------------------------------------------------
+from __future__ import print_function
 
 """Compress a Fast R-CNN network using truncated SVD."""
 
@@ -100,7 +101,7 @@ def main():
     # Compress fc7
     if net_svd.params.has_key('fc7_L'):
         l_fc7 = net_svd.params['fc7_L'][0].data.shape[0]
-        print '  fc7_L bottleneck size: {}'.format(l_fc7)
+        print('  fc7_L bottleneck size: {}'.format(l_fc7))
 
         W_fc7 = net.params['fc7'][0].data
         B_fc7 = net.params['fc7'][1].data
@@ -119,7 +120,7 @@ def main():
 
     filename = '{}/{}.caffemodel'.format(out_dir, out)
     net_svd.save(filename)
-    print 'Wrote svd model to: {:s}'.format(filename)
+    print('Wrote svd model to: {:s}'.format(filename))
 
 if __name__ == '__main__':
     main()

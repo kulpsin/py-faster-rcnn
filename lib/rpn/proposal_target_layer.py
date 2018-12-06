@@ -4,6 +4,7 @@
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick and Sean Bell
 # --------------------------------------------------------
+from __future__ import print_function
 
 import caffe
 import yaml
@@ -66,14 +67,14 @@ class ProposalTargetLayer(caffe.Layer):
             rois_per_image, self._num_classes)
 
         if DEBUG:
-            print 'num fg: {}'.format((labels > 0).sum())
-            print 'num bg: {}'.format((labels == 0).sum())
+            print('num fg: {}'.format((labels > 0).sum()))
+            print('num bg: {}'.format((labels == 0).sum()))
             self._count += 1
             self._fg_num += (labels > 0).sum()
             self._bg_num += (labels == 0).sum()
-            print 'num fg avg: {}'.format(self._fg_num / self._count)
-            print 'num bg avg: {}'.format(self._bg_num / self._count)
-            print 'ratio: {:.3f}'.format(float(self._fg_num) / float(self._bg_num))
+            print('num fg avg: {}'.format(self._fg_num / self._count))
+            print('num bg avg: {}'.format(self._bg_num / self._count))
+            print('ratio: {:.3f}'.format(float(self._fg_num) / float(self._bg_num)))
 
         # sampled rois
         top[0].reshape(*rois.shape)

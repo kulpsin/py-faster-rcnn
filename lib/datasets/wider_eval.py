@@ -9,24 +9,41 @@ import os
 import pickle
 import numpy as np
 
-def parse_rec(filename):
-    """ Parse a PASCAL VOC xml file """
-    tree = ET.parse(filename)
-    objects = []
-    for obj in tree.findall('object'):
-        obj_struct = {}
-        obj_struct['name'] = obj.find('name').text
-        obj_struct['pose'] = obj.find('pose').text
-        obj_struct['truncated'] = int(obj.find('truncated').text)
-        obj_struct['difficult'] = int(obj.find('difficult').text)
-        bbox = obj.find('bndbox')
-        obj_struct['bbox'] = [int(bbox.find('xmin').text),
-                              int(bbox.find('ymin').text),
-                              int(bbox.find('xmax').text),
-                              int(bbox.find('ymax').text)]
-        objects.append(obj_struct)
 
-    return objects
+def parse_rec(filename):
+    """
+    Load image and bounding boxes info from txt file in the WIDER FACE
+    format.
+    """
+    with open(filename) as f:
+        data = f.readlines()
+    recs = {}
+    total_images = len(data)
+    while data:
+        image_name = data.pop(0).strip("\n")
+        num_objs = int(data.pop(0))
+
+        objects = []
+
+        # Load object bounding boxes into a data frame.
+        for ix in range(num_objs):
+            face = data.pop(0).strip("\n").split(" ")
+            x1 = int(face[0])
+            y1 = int(face[1])
+            x2 = x1 + int(face[2])
+            y2 = y1 + int(face[3])
+            blur = int(face[4])
+            occulsion = int(face[8])
+            pose = int(face[9])
+            objects.append({
+                'name': 'person',
+                'pose': pose,
+                'truncated': occulsion,
+                'difficult': (blur+1)*(occulsion+1)-1,
+                'bbox': [x1, y1, x2, y2],
+            })
+        recs[image_name] = objects
+    return recs
 
 def voc_ap(rec, prec, use_07_metric=False):
     """ ap = voc_ap(rec, prec, [use_07_metric])
@@ -61,7 +78,7 @@ def voc_ap(rec, prec, use_07_metric=False):
         ap = np.sum((mrec[i + 1] - mrec[i]) * mpre[i + 1])
     return ap
 
-def voc_eval(detpath,
+def wider_eval(detpath,
              annopath,
              imagesetfile,
              classname,
@@ -72,8 +89,7 @@ def voc_eval(detpath,
                                 annopath,
                                 imagesetfile,
                                 classname,
-                                [ovthresh],
-                                [use_07_metric])
+                                [ovthresh])
 
     Top level function that does the PASCAL VOC evaluation.
 
@@ -85,8 +101,6 @@ def voc_eval(detpath,
     classname: Category name (duh)
     cachedir: Directory for caching the annotations
     [ovthresh]: Overlap threshold (default = 0.5)
-    [use_07_metric]: Whether to use VOC07's 11 point AP computation
-        (default False)
     """
     # assumes detections are in detpath.format(classname)
     # assumes annotations are in annopath.format(imagename)
@@ -104,12 +118,13 @@ def voc_eval(detpath,
 
     if not os.path.isfile(cachefile):
         # load annots
-        recs = {}
-        for i, imagename in enumerate(imagenames):
-            recs[imagename] = parse_rec(annopath.format(imagename))
-            if i % 100 == 0:
-                print('Reading annotation for {:d}/{:d}'.format(
-                    i + 1, len(imagenames)))
+        #recs = {}
+        recs = parse_rec(annopath)
+        #for i, imagename in enumerate(imagenames):
+        #    recs[imagename] = parse_rec(annopath.format(imagename))
+        #    if i % 100 == 0:
+        #        print('Reading annotation for {:d}/{:d}'.format(
+        #            i + 1, len(imagenames)))
         # save
         print('Saving cached annotations to {:s}'.format(cachefile))
         with open(cachefile, 'wb') as f:

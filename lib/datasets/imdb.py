@@ -106,8 +106,10 @@ class imdb(object):
             boxes = self.roidb[i]['boxes'].copy()
             oldx1 = boxes[:, 0].copy()
             oldx2 = boxes[:, 2].copy()
-            boxes[:, 0] = widths[i] - oldx2 - 1
-            boxes[:, 2] = widths[i] - oldx1 - 1
+            # Bug: minus one can cause overflow and following assert will catch
+            #      it.
+            boxes[:, 0] = widths[i] - oldx2 # - 1
+            boxes[:, 2] = widths[i] - oldx1 # - 1
             assert (boxes[:, 2] >= boxes[:, 0]).all()
             entry = {'boxes' : boxes,
                      'gt_overlaps' : self.roidb[i]['gt_overlaps'],
@@ -140,7 +142,7 @@ class imdb(object):
                         [256**2, 512**2],  # 256-512
                         [512**2, 1e5**2],  # 512-inf
                       ]
-        assert areas.has_key(area), 'unknown area range: {}'.format(area)
+        assert area in areas, 'unknown area range: {}'.format(area)
         area_range = area_ranges[areas[area]]
         gt_overlaps = np.zeros(0)
         num_pos = 0

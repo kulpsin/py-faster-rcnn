@@ -56,7 +56,7 @@ from skimage.draw import polygon
 import urllib
 import copy
 import itertools
-import mask
+import pycocotools.mask
 import os
 
 class COCO:

@@ -4,7 +4,7 @@
 # Licensed under The MIT License [see LICENSE for details]
 # Written by Ross Girshick and Sean Bell
 # --------------------------------------------------------
-from __future__ import print_function
+from __future__ import print_function, division
 
 import caffe
 import yaml
@@ -57,9 +57,8 @@ class ProposalTargetLayer(caffe.Layer):
                 'Only single item batches are supported'
 
         num_images = 1
-        rois_per_image = cfg.TRAIN.BATCH_SIZE / num_images
-        fg_rois_per_image = np.round(cfg.TRAIN.FG_FRACTION * rois_per_image)
-
+        rois_per_image = cfg.TRAIN.BATCH_SIZE // num_images
+        fg_rois_per_image = np.int64(np.rint(cfg.TRAIN.FG_FRACTION * rois_per_image))
         # Sample rois with classification labels and bounding box regression
         # targets
         labels, rois, bbox_targets, bbox_inside_weights = _sample_rois(
@@ -123,7 +122,7 @@ def _get_bbox_regression_labels(bbox_target_data, num_classes):
     inds = np.where(clss > 0)[0]
     for ind in inds:
         cls = clss[ind]
-        start = 4 * cls
+        start = np.int64(4 * cls)
         end = start + 4
         bbox_targets[ind, start:end] = bbox_target_data[ind, 1:]
         bbox_inside_weights[ind, start:end] = cfg.TRAIN.BBOX_INSIDE_WEIGHTS
@@ -141,7 +140,7 @@ def _compute_targets(ex_rois, gt_rois, labels):
     if cfg.TRAIN.BBOX_NORMALIZE_TARGETS_PRECOMPUTED:
         # Optionally normalize targets by a precomputed mean and stdev
         targets = ((targets - np.array(cfg.TRAIN.BBOX_NORMALIZE_MEANS))
-                / np.array(cfg.TRAIN.BBOX_NORMALIZE_STDS))
+                // np.array(cfg.TRAIN.BBOX_NORMALIZE_STDS))
     return np.hstack(
             (labels[:, np.newaxis], targets)).astype(np.float32, copy=False)
 

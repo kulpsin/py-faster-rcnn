@@ -19,7 +19,6 @@ from fast_rcnn.config import cfg
 class wider_face(imdb):
     def __init__(self, image_set, devkit_path=None):
         imdb.__init__(self, 'wider_face_' + image_set)
-        #self._year = year
         self._image_set = image_set
         self._devkit_path = self._get_default_path() if devkit_path is None \
                             else devkit_path
@@ -32,7 +31,7 @@ class wider_face(imdb):
         #                 'sheep', 'sofa', 'train', 'tvmonitor')
                          'person')
         self._class_to_ind = dict(zip(self.classes, range(self.num_classes)))
-        self._image_ext = '.jpg'
+        self._image_ext = ''
         self._image_index = self._load_image_set_index()
         # Default to roidb handler
         self._roidb_handler = self.selective_search_roidb
@@ -181,10 +180,11 @@ class wider_face(imdb):
                                 self._image_set + '.txt')
         with open(filename) as f:
             data = f.readlines()
+        annotations = dict()
         while data:
             #image_path = os.path.join(self._data_path, 'Images', self._image_set,
             #                          data.pop(0).strip("\n"))
-            data.pop(0)
+            image_name = data.pop(0).strip("\n")
             num_objs = int(data.pop(0))
 
             boxes = np.zeros((num_objs, 4), dtype=np.uint16)
@@ -200,7 +200,7 @@ class wider_face(imdb):
                 y1 = int(face[1])
                 x2 = x1 + int(face[2])
                 y2 = y1 + int(face[3])
-                cls = self._class_to_ind['person'] # or "person" TODO
+                cls = self._class_to_ind['person']
                 boxes[ix, :] = [x1, y1, x2, y2]
                 gt_classes[ix] = cls
                 overlaps[ix, cls] = 1.0
@@ -208,12 +208,14 @@ class wider_face(imdb):
 
 
             overlaps = scipy.sparse.csr_matrix(overlaps)
-
-            yield {'boxes' : boxes,
+            annotations[image_name] = {'boxes' : boxes,
                    'gt_classes': gt_classes,
                    'gt_overlaps' : overlaps,
                    'flipped' : False,
                    'seg_areas' : seg_areas}
+
+        for image_name in self.image_index:
+            yield annotations[image_name]
 
     def _get_comp_id(self):
         comp_id = (self._comp_id + '_' + self._salt if self.config['use_salt']

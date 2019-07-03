@@ -87,12 +87,13 @@ class wider_face(imdb):
         This function loads/saves from/to a cache file to speed up future calls.
         """
         cache_file = os.path.join(self.cache_path, self.name + '_gt_roidb.pkl')
+        """
         if os.path.exists(cache_file):
             with open(cache_file, 'rb') as fid:
                 roidb = pickle.load(fid)
             print('{} gt roidb loaded from {}'.format(self.name, cache_file))
             return roidb
-
+        """
         gt_roidb = list(self._load_wider_annotation())
 
         with open(cache_file, 'wb') as fid:
@@ -108,6 +109,7 @@ class wider_face(imdb):
 
         This function loads/saves from/to a cache file to speed up future calls.
         """
+        raise NotImplementedError
         cache_file = os.path.join(self.cache_path,
                                   self.name + '_selective_search_roidb.pkl')
 
@@ -153,6 +155,7 @@ class wider_face(imdb):
         return self.create_roidb_from_box_list(box_list, gt_roidb)
 
     def _load_selective_search_roidb(self, gt_roidb):
+        raise NotImplementedError
         filename = os.path.abspath(os.path.join(cfg.DATA_DIR,
                                                 'selective_search_data',
                                                 self.name + '.mat'))
@@ -181,6 +184,14 @@ class wider_face(imdb):
         with open(filename) as f:
             data = f.readlines()
         annotations = dict()
+        stats = {
+            "blur": 0,
+            "occlusion": 0,
+            "invalid_image": 0,
+            "face_size": 0,
+            "atypical_pose": 0,
+        }
+        remaining_faces = 0
         while data:
             #image_path = os.path.join(self._data_path, 'Images', self._image_set,
             #                          data.pop(0).strip("\n"))
@@ -193,19 +204,57 @@ class wider_face(imdb):
             # "Seg" area for pascal is just the box area
             seg_areas = np.zeros((num_objs), dtype=np.float32)
 
+            face_counter = 0
+
             # Load object bounding boxes into a data frame.
             for ix in range(num_objs):
+                """Format:
+                0  1  2 3 4    5          6            7       8         9
+                x1 y1 w h blur expression illumination invalid occlusion pose
+                """
                 face = data.pop(0).strip("\n").split(" ")
+
                 x1 = int(face[0])
+                assert x1 >= 0, "x1 must be positive ({})".format(x1)
+
                 y1 = int(face[1])
+                assert y1 >= 0, "y1 must be positive ({})".format(y1)
+
                 x2 = x1 + int(face[2])
+                assert x2 >= x1, "x2 ({}) must be larger than x1 ({}), {}".format(x1, x2, image_name)
+
                 y2 = y1 + int(face[3])
+                assert y2 >= y1, "y2 ({}) must be larger than y1 ({}), {}".format(y1, y2, image_name)
+
                 cls = self._class_to_ind['person']
+                face_size = (x2 - x1 + 1) * (y2 - y1 + 1)
+
+
                 boxes[ix, :] = [x1, y1, x2, y2]
                 gt_classes[ix] = cls
-                overlaps[ix, cls] = 1.0
-                seg_areas[ix] = (x2 - x1 + 1) * (y2 - y1 + 1)
+                seg_areas[ix] = face_size
 
+                # Setting overlaps to -1 will cause them to be excluded
+                # during training phase.
+                if int(face[8]) > 0: # "2":
+                    stats["occlusion"] += 1
+                    overlaps[ix, :] = -1.0
+                elif face[4] == "2":
+                    stats["blur"] += 1
+                    overlaps[ix, :] = -1.0
+                elif face[7] == "1":
+                    stats["invalid_image"] += 1
+                    overlaps[ix, :] = -1.0
+                elif face[9] == "1":
+                    stats["atypical_pose"] += 1
+                    overlaps[ix, :] = -1.0
+                elif face_size < 400:
+                    stats["face_size"] += 1
+                    overlaps[ix, :] = -1.0
+                else:
+                    remaining_faces += 1
+                    face_counter += 1
+                    overlaps[ix, cls] = 1.0
 
             overlaps = scipy.sparse.csr_matrix(overlaps)
             annotations[image_name] = {'boxes' : boxes,
@@ -214,8 +263,14 @@ class wider_face(imdb):
                    'flipped' : False,
                    'seg_areas' : seg_areas}
 
+        for reason, amount in stats.items():
+            print("Ignoring {} faces due to {}".format(amount, reason))
+        print("Total {} faces were preserved".format(remaining_faces))
+
         for image_name in self.image_index:
-            yield annotations[image_name]
+            if image_name in annotations:
+                yield annotations[image_name]
+
 
     def _get_comp_id(self):
         comp_id = (self._comp_id + '_' + self._salt if self.config['use_salt']
@@ -265,6 +320,8 @@ class wider_face(imdb):
 
         if not os.path.isdir(output_dir):
             os.mkdir(output_dir)
+        print("At _do_python_eval")
+        exit()
         for i, cls in enumerate(self._classes):
             if cls == '__background__':
                 continue

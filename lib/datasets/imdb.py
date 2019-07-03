@@ -107,10 +107,20 @@ class imdb(object):
             oldx1 = boxes[:, 0].copy()
             oldx2 = boxes[:, 2].copy()
             # Bug: minus one can cause overflow and following assert will catch
-            #      it.
+            #      it. Also assert catches problems caused by bounding Boxes
+            #      being outside of the image.
             boxes[:, 0] = widths[i] - oldx2 # - 1
             boxes[:, 2] = widths[i] - oldx1 # - 1
-            assert (boxes[:, 2] >= boxes[:, 0]).all()
+            try:
+                assert (boxes[:, 2] >= boxes[:, 0]).all()
+            except AssertionError as e:
+                print("Some information to help figuring out what might have gone wrong:")
+                print()
+                print(boxes[:, 0])
+                print()
+                print(boxes[:, 2])
+                print()
+                raise
             entry = {'boxes' : boxes,
                      'gt_overlaps' : self.roidb[i]['gt_overlaps'],
                      'gt_classes' : self.roidb[i]['gt_classes'],
